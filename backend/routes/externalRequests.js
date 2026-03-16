@@ -4,6 +4,46 @@ const { pool } = require('../db/database')
 const { authenticate, requireStaff } = require('../middleware/auth')
 
 const router = express.Router()
+
+// ── POST /api/external-requests — any authenticated user can submit ────────────
+router.post('/', authenticate, async (req, res) => {
+  try {
+    const { direction, bank_name, contact_name, contact_phone, contact_email, blood_type, units, urgency, reason, notes } = req.body
+    if (!direction || !bank_name || !contact_name || !blood_type || !units || !urgency)
+      return res.status(400).json({ error: 'direction, bank_name, contact_name, blood_type, units and urgency are required' })
+    if (!['incoming', 'outgoing'].includes(direction))
+      return res.status(400).json({ error: 'direction must be "incoming" or "outgoing"' })
+
+    const id = crypto.randomUUID()
+    await pool.query(
+      `INSERT INTO external_requests (id, direction, bank_name, contact_name, contact_phone, contact_email, blood_type, units, urgency, reason, notes, submitted_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, direction, bank_name, contact_name, contact_phone || null, contact_email || null, blood_type, units, urgency, reason || null, notes || null, req.user.id]
+    )
+    await pool.query('INSERT INTO activity_log (id, type, message) VALUES (?, ?, ?)', [
+      crypto.randomUUID(), 'request',
+      `${direction === 'incoming' ? 'Incoming' : 'Outgoing'} inter-bank request: ${bank_name} — ${units} units of ${blood_type}`
+    ])
+    const [rows] = await pool.query('SELECT * FROM external_requests WHERE id = ?', [id])
+    res.status(201).json({ request: rows[0] })
+  } catch (err) {
+    console.error(err); res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+// ── GET /api/external-requests/mine — user's own submissions ─────────────────
+router.get('/mine', authenticate, async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      'SELECT * FROM external_requests WHERE submitted_by = ? ORDER BY request_date DESC',
+      [req.user.id]
+    )
+    res.json({ requests: rows })
+  } catch (err) {
+    console.error(err); res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
 router.use(authenticate, requireStaff)
 
 // ── GET /api/external-requests?direction=incoming|outgoing ────────────────────
@@ -19,31 +59,7 @@ router.get('/', async (req, res) => {
   }
 })
 
-// ── POST /api/external-requests ───────────────────────────────────────────────
-router.post('/', async (req, res) => {
-  try {
-    const { direction, bank_name, contact_name, contact_phone, contact_email, blood_type, units, urgency, reason, notes } = req.body
-    if (!direction || !bank_name || !contact_name || !blood_type || !units || !urgency)
-      return res.status(400).json({ error: 'direction, bank_name, contact_name, blood_type, units and urgency are required' })
-    if (!['incoming', 'outgoing'].includes(direction))
-      return res.status(400).json({ error: 'direction must be "incoming" or "outgoing"' })
-
-    const id = crypto.randomUUID()
-    await pool.query(
-      `INSERT INTO external_requests (id, direction, bank_name, contact_name, contact_phone, contact_email, blood_type, units, urgency, reason, notes)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, direction, bank_name, contact_name, contact_phone || null, contact_email || null, blood_type, units, urgency, reason || null, notes || null]
-    )
-    await pool.query('INSERT INTO activity_log (id, type, message) VALUES (?, ?, ?)', [
-      crypto.randomUUID(), 'request',
-      `${direction === 'incoming' ? 'Incoming' : 'Outgoing'} inter-bank request: ${bank_name} — ${units} units of ${blood_type}`
-    ])
-    const [rows] = await pool.query('SELECT * FROM external_requests WHERE id = ?', [id])
-    res.status(201).json({ request: rows[0] })
-  } catch (err) {
-    console.error(err); res.status(500).json({ error: 'Internal server error' })
-  }
-})
+// ── POST removed — moved above requireStaff ───────────────────────────────────
 
 // ── PATCH /api/external-requests/:id/status ───────────────────────────────────
 router.patch('/:id/status', async (req, res) => {

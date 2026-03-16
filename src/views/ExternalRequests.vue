@@ -8,6 +8,9 @@
       <button v-if="activeTab === 'outgoing'" class="btn-new" @click="showNewModal = true">
         ＋ Request from Bank
       </button>
+      <button class="btn-refresh" @click="refresh" :disabled="refreshing">
+        {{ refreshing ? '⏳' : '🔄' }} Refresh
+      </button>
     </div>
 
     <!-- Tabs -->
@@ -295,16 +298,27 @@
 </template>
 
 <script setup>
-import { ref, computed, reactive, onMounted } from 'vue'
+import { ref, computed, reactive, onMounted, watch } from 'vue'
 import { useBloodBankStore } from '@/stores/bloodBank'
 
 const store = useBloodBankStore()
 
 const activeTab = ref('incoming')
 const toast = ref('')
+const refreshing = ref(false)
+
+async function refresh() {
+  refreshing.value = true
+  await store.fetchExternalRequests()
+  refreshing.value = false
+}
 
 onMounted(async () => {
   await store.fetchExternalRequests()
+})
+
+watch(activeTab, () => {
+  store.fetchExternalRequests()
 })
 
 function showToast(msg) {
@@ -450,6 +464,10 @@ function outStatusClass(s) {
 .tab-btn.active .tab-badge { background: rgba(255,255,255,0.3); }
 
 /* New request button */
+.btn-refresh { padding: 0.55rem 1rem; background: #fff; color: #555; border: 1.5px solid #dce1e7; border-radius: 8px; font-size: 0.88rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.btn-refresh:hover:not(:disabled) { border-color: #1a1a2e; color: #1a1a2e; }
+.btn-refresh:disabled { opacity: .5; cursor: not-allowed; }
+
 .btn-new { padding: 0.55rem 1.2rem; background: #1a1a2e; color: #fff; border: none; border-radius: 8px; font-size: 0.88rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
 .btn-new:hover { background: #16213e; }
 

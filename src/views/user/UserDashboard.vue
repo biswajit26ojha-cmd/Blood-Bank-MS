@@ -103,10 +103,10 @@
           <div
             v-for="type in store.BLOOD_TYPES"
             :key="type"
-            :class="['blood-cell', availClass(store.inventory[type]?.units)]"
+            :class="['blood-cell', availClass(getUnits(type))]"
           >
             <span class="bc-type">{{ type }}</span>
-            <span class="bc-units">{{ store.inventory[type]?.units ?? 0 }}</span>
+            <span class="bc-units">{{ getUnits(type) }}</span>
             <span class="bc-label">units</span>
           </div>
         </div>
@@ -123,7 +123,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useBloodBankStore } from '@/stores/bloodBank'
@@ -131,6 +131,14 @@ import { useBloodBankStore } from '@/stores/bloodBank'
 const auth = useAuthStore()
 const store = useBloodBankStore()
 const tab = ref('requests')
+
+onMounted(() => {
+  if (store.inventory.length === 0) store.fetchInventory()
+})
+
+function getUnits(type) {
+  return store.inventory.find(r => r.blood_type === type)?.units ?? 0
+}
 
 const firstName = computed(() => auth.currentUser?.name?.split(' ')[0] || 'there')
 

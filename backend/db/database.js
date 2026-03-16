@@ -82,7 +82,8 @@ async function migrate() {
         notes         TEXT,
         status        VARCHAR(30)  NOT NULL DEFAULT 'Pending',
         request_date  DATE         NOT NULL DEFAULT (CURDATE()),
-        resolved_date DATE
+        resolved_date DATE,
+        submitted_by  VARCHAR(36)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `)
     await conn.query(`
@@ -106,6 +107,14 @@ async function migrate() {
         created_at DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `)
+    // Add submitted_by column if it doesn't exist (for existing databases)
+    try {
+      await conn.query(`ALTER TABLE external_requests ADD COLUMN submitted_by VARCHAR(36) NULL`)
+      console.log('✅ Added submitted_by column to external_requests')
+    } catch (e) {
+      // Column already exists — ignore duplicate column error (1060)
+      if (e.errno !== 1060) throw e
+    }
     console.log('✅ DB migration complete')
   } finally {
     conn.release()

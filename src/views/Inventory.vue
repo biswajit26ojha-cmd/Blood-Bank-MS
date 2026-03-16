@@ -105,7 +105,7 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useBloodBankStore } from '@/stores/bloodBank'
 
 const store = useBloodBankStore()
@@ -113,6 +113,10 @@ const store = useBloodBankStore()
 const addQty    = reactive({})
 const deductQty = reactive({})
 const seeding   = ref(false)
+
+onMounted(() => {
+  if (store.inventory.length === 0) store.fetchInventory()
+})
 
 async function seedInventory() {
   seeding.value = true

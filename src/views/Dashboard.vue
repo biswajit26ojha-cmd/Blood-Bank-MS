@@ -101,11 +101,17 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useBloodBankStore } from '@/stores/bloodBank'
 
 const store = useBloodBankStore()
+
+onMounted(() => {
+  if (store.inventory.length === 0) store.fetchInventory()
+  if (store.donors.length === 0) store.fetchDonors()
+  if (store.requests.length === 0) store.fetchRequests()
+})
 
 const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
 

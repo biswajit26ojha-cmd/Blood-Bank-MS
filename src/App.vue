@@ -34,7 +34,7 @@ const auth = useAuthStore()
 const store = useBloodBankStore()
 
 onMounted(async () => {
-  await auth.restoreSession()
+  // Use cached session from localStorage immediately — don't wait for server validation
   if (auth.isLoggedIn && auth.isStaff) {
     store.fetchInventory()
     store.fetchRequests()
@@ -43,6 +43,8 @@ onMounted(async () => {
   } else if (auth.isLoggedIn) {
     store.fetchInventory()
   }
+  // Validate token with server in the background (logs out if expired)
+  auth.restoreSession()
 })
 </script>
 
