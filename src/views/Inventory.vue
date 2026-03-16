@@ -23,45 +23,53 @@
       </div>
     </div>
 
+    <!-- Seed button when inventory is empty -->
+    <div v-if="store.inventory.length === 0" class="seed-banner">
+      <p>No inventory records found. Click below to initialise all blood types.</p>
+      <button class="btn-seed" :disabled="seeding" @click="seedInventory">
+        {{ seeding ? 'Initialising…' : '🩸 Initialise Blood Inventory' }}
+      </button>
+    </div>
+
     <!-- Blood type cards -->
     <div class="inventory-grid">
       <div
-        v-for="type in store.BLOOD_TYPES"
-        :key="type"
+        v-for="row in store.inventory"
+        :key="row.blood_type"
         class="inv-card"
-        :class="stockClass(store.inventory[type])"
+        :class="stockClass(row)"
       >
         <div class="inv-header">
-          <div class="inv-type">{{ type }}</div>
-          <div class="inv-status-tag" :class="stockClass(store.inventory[type])">
-            {{ stockLabel(store.inventory[type]) }}
+          <div class="inv-type">{{ row.blood_type }}</div>
+          <div class="inv-status-tag" :class="stockClass(row)">
+            {{ stockLabel(row) }}
           </div>
         </div>
-        <div class="inv-units">{{ store.inventory[type].units }}</div>
+        <div class="inv-units">{{ row.units }}</div>
         <div class="inv-units-label">units available</div>
 
         <div class="inv-bar-wrap">
           <div
             class="inv-bar"
-            :class="stockClass(store.inventory[type])"
-            :style="{ width: Math.min(100, (store.inventory[type].units / 60) * 100) + '%' }"
+            :class="stockClass(row)"
+            :style="{ width: Math.min(100, (row.units / 60) * 100) + '%' }"
           ></div>
         </div>
-        <div class="inv-threshold">Min threshold: {{ store.inventory[type].minThreshold }} units</div>
+        <div class="inv-threshold">Min threshold: {{ row.min_threshold }} units</div>
 
         <div class="inv-actions">
           <div class="adj-group">
             <label>Add units</label>
             <div class="qty-row">
-              <input v-model.number="addQty[type]" type="number" min="1" max="100" class="qty-input" placeholder="1" />
-              <button class="btn-add" @click="handleAdd(type)">+ Add</button>
+              <input v-model.number="addQty[row.blood_type]" type="number" min="1" max="100" class="qty-input" placeholder="1" />
+              <button class="btn-add" @click="handleAdd(row.blood_type)">+ Add</button>
             </div>
           </div>
           <div class="adj-group">
             <label>Deduct units</label>
             <div class="qty-row">
-              <input v-model.number="deductQty[type]" type="number" min="1" :max="store.inventory[type].units" class="qty-input" placeholder="1" />
-              <button class="btn-deduct" @click="handleDeduct(type)">- Deduct</button>
+              <input v-model.number="deductQty[row.blood_type]" type="number" min="1" :max="row.units" class="qty-input" placeholder="1" />
+              <button class="btn-deduct" @click="handleDeduct(row.blood_type, row.units)">- Deduct</button>
             </div>
           </div>
         </div>
@@ -102,44 +110,53 @@ import { useBloodBankStore } from '@/stores/bloodBank'
 
 const store = useBloodBankStore()
 
-const addQty = reactive({})
+const addQty    = reactive({})
 const deductQty = reactive({})
-store.BLOOD_TYPES.forEach(t => { addQty[t] = null; deductQty[t] = null })
+const seeding   = ref(false)
+
+async function seedInventory() {
+  seeding.value = true
+  const defaults = { 'O+': 38, 'A+': 22, 'B+': 15, 'AB+': 8, 'O-': 5, 'A-': 12, 'B-': 9, 'AB-': 3 }
+  for (const [bt, units] of Object.entries(defaults)) {
+    try { await store.adjustInventory(bt, 'add', units, 'Initial seed') } catch (e) { console.error(e) }
+  }
+  await store.fetchInventory()
+  seeding.value = false
+}
+
+function now() { return new Date().toISOString().slice(0, 16).replace('T', ' ') }
 
 const adjustments = ref([])
 
-function generateId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 5) }
-function now() { return new Date().toISOString().slice(0, 16).replace('T', ' ') }
-
-function handleAdd(type) {
-  const qty = addQty[type]
+async function handleAdd(blood_type) {
+  const qty = addQty[blood_type]
   if (!qty || qty < 1) return
-  store.addInventory(type, qty)
-  adjustments.value.unshift({ id: generateId(), time: now(), type, action: 'Added', units: qty })
-  addQty[type] = null
+  await store.adjustInventory(blood_type, 'add', qty)
+  adjustments.value.unshift({ id: crypto.randomUUID(), time: now(), type: blood_type, action: 'Added', units: qty })
+  addQty[blood_type] = null
 }
 
-function handleDeduct(type) {
-  const qty = deductQty[type]
+async function handleDeduct(blood_type, available) {
+  const qty = deductQty[blood_type]
   if (!qty || qty < 1) return
-  if (qty > store.inventory[type].units) {
-    alert(`Cannot deduct ${qty} units — only ${store.inventory[type].units} available.`)
+  if (qty > available) {
+    alert(`Cannot deduct ${qty} units — only ${available} available.`)
     return
   }
-  store.deductInventory(type, qty)
-  adjustments.value.unshift({ id: generateId(), time: now(), type, action: 'Deducted', units: qty })
-  deductQty[type] = null
+  await store.adjustInventory(blood_type, 'deduct', qty)
+  adjustments.value.unshift({ id: crypto.randomUUID(), time: now(), type: blood_type, action: 'Deducted', units: qty })
+  deductQty[blood_type] = null
 }
 
-function stockClass(inv) {
-  if (inv.units < inv.minThreshold) return 'critical'
-  if (inv.units < inv.minThreshold * 2) return 'low'
+function stockClass(row) {
+  if (row.units < row.min_threshold) return 'critical'
+  if (row.units < row.min_threshold * 2) return 'low'
   return 'ok'
 }
 
-function stockLabel(inv) {
-  if (inv.units < inv.minThreshold) return 'Critical'
-  if (inv.units < inv.minThreshold * 2) return 'Low'
+function stockLabel(row) {
+  if (row.units < row.min_threshold) return 'Critical'
+  if (row.units < row.min_threshold * 2) return 'Low'
   return 'Adequate'
 }
 </script>
@@ -205,4 +222,9 @@ function stockLabel(inv) {
 .action-tag.Deducted { background: #fdedec; color: #922b21; }
 
 .empty-msg { color: #95a5a6; font-size: .9rem; padding: .5rem 0; }
+
+.seed-banner { background: #fff8e1; border: 1px dashed #f39c12; border-radius: 10px; padding: 1.25rem 1.5rem; text-align: center; margin-bottom: 1.5rem; }
+.seed-banner p { margin: 0 0 .75rem; color: #7f6000; font-size: .95rem; }
+.btn-seed { background: #c0392b; color: #fff; border: none; padding: .6rem 1.4rem; border-radius: 8px; font-size: .95rem; font-weight: 600; cursor: pointer; }
+.btn-seed:disabled { opacity: .6; cursor: not-allowed; }
 </style>

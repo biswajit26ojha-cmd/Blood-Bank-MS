@@ -47,15 +47,15 @@
         <h2 class="card-title">Blood Inventory Summary</h2>
         <div class="inventory-grid">
           <div
-            v-for="type in store.BLOOD_TYPES"
-            :key="type"
+            v-for="row in store.inventory"
+            :key="row.blood_type"
             class="blood-type-chip"
-            :class="getStockClass(store.inventory[type].units, store.inventory[type].minThreshold)"
+            :class="getStockClass(row.units, row.min_threshold)"
           >
-            <div class="bt-name">{{ type }}</div>
-            <div class="bt-units">{{ store.inventory[type].units }}<span class="bt-unit-label"> units</span></div>
+            <div class="bt-name">{{ row.blood_type }}</div>
+            <div class="bt-units">{{ row.units }}<span class="bt-unit-label"> units</span></div>
             <div class="bt-bar-wrap">
-              <div class="bt-bar" :style="{ width: Math.min(100, (store.inventory[type].units / 50) * 100) + '%' }"></div>
+              <div class="bt-bar" :style="{ width: Math.min(100, (row.units / 50) * 100) + '%' }"></div>
             </div>
           </div>
         </div>
@@ -73,8 +73,8 @@
             <li v-for="req in pendingList" :key="req.id" class="request-item">
               <span class="urgency-dot" :class="req.urgency.toLowerCase()"></span>
               <div class="req-info">
-                <div class="req-patient">{{ req.patientName }}</div>
-                <div class="req-detail">{{ req.bloodType }} · {{ req.units }} unit(s) · {{ req.hospital }}</div>
+                <div class="req-patient">{{ req.patient_name }}</div>
+                <div class="req-detail">{{ req.blood_type }} · {{ req.units }} unit(s) · {{ req.hospital }}</div>
               </div>
               <span class="urgency-tag" :class="req.urgency.toLowerCase()">{{ req.urgency }}</span>
             </li>
@@ -90,7 +90,7 @@
               <span class="activity-icon">{{ activityIcon(log.type) }}</span>
               <div class="activity-body">
                 <div class="activity-msg">{{ log.message }}</div>
-                <div class="activity-time">{{ log.time }}</div>
+                <div class="activity-time">{{ log.created_at }}</div>
               </div>
             </li>
           </ul>

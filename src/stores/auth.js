@@ -1,139 +1,151 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { api } from '@/services/api'
 
-const USERS_KEY = 'bb_users'
+const TOKEN_KEY = 'bb_token'
 const SESSION_KEY = 'bb_session'
 
-const DEFAULT_ADMIN = {
-  id: 'default-admin',
-  name: 'Pankaj Mahanta',
-  email: 'pankaj.mahanta@gmail.com',
-  password: 'Admin@123',
-  role: 'admin',
-  createdAt: '2026-01-01T00:00:00.000Z'
-}
-
-function loadUsers() {
-  try {
-    const stored = JSON.parse(localStorage.getItem(USERS_KEY)) || []
-    // Always ensure the default admin exists
-    const hasAdmin = stored.find(u => u.id === DEFAULT_ADMIN.id)
-    if (!hasAdmin) {
-      stored.unshift(DEFAULT_ADMIN)
-      localStorage.setItem(USERS_KEY, JSON.stringify(stored))
-    }
-    return stored
-  } catch {
-    const initial = [DEFAULT_ADMIN]
-    localStorage.setItem(USERS_KEY, JSON.stringify(initial))
-    return initial
-  }
-}
-
-function saveUsers(users) {
-  localStorage.setItem(USERS_KEY, JSON.stringify(users))
-}
-
 export const useAuthStore = defineStore('auth', () => {
-  const users = ref(loadUsers())
+  // List of users visible to admin — populated by fetchUsers()
+  const users = ref([])
+
+  // Rehydrate session from localStorage on page load
   const currentUser = ref(JSON.parse(localStorage.getItem(SESSION_KEY)) || null)
 
   const isLoggedIn = computed(() => currentUser.value !== null)
+  const isAdmin    = computed(() => currentUser.value?.role === 'admin')
+  const isUser     = computed(() => currentUser.value?.role === 'user')
+  const isStaff    = computed(() => ['staff', 'doctor', 'nurse', 'admin'].includes(currentUser.value?.role))
 
-  function register({ name, email, password, role }) {
-    if (users.value.find(u => u.email.toLowerCase() === email.toLowerCase())) {
-      return { ok: false, error: 'An account with this email already exists.' }
-    }
-    const newUser = {
-      id: Date.now().toString(36) + Math.random().toString(36).slice(2),
-      name,
-      email: email.toLowerCase(),
-      password, // stored plaintext — acceptable for a local-only demo app
-      role: role || 'staff',
-      createdAt: new Date().toISOString()
-    }
-    users.value.push(newUser)
-    saveUsers(users.value)
-    return { ok: true }
+  function _setSession(token, user) {
+    localStorage.setItem(TOKEN_KEY, token)
+    localStorage.setItem(SESSION_KEY, JSON.stringify(user))
+    currentUser.value = user
   }
 
-  // Staff/user login — rejects admin accounts
-  function login(email, password) {
-    const user = users.value.find(
-      u => u.email.toLowerCase() === email.toLowerCase() && u.password === password
-    )
-    if (!user) {
-      return { ok: false, error: 'Invalid email or password.' }
+  // ── Auth actions ──────────────────────────────────────────────────────────
+
+  async function register({ name, email, password }) {
+    try {
+      await api.register(name, email, password)
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: err.message }
     }
-    if (user.role === 'admin') {
-      return { ok: false, error: 'Please use the Admin Portal to sign in as administrator.' }
-    }
-    const session = { id: user.id, name: user.name, email: user.email, role: user.role }
-    currentUser.value = session
-    localStorage.setItem(SESSION_KEY, JSON.stringify(session))
-    return { ok: true }
   }
 
-  // Admin-only login
-  function adminLogin(email, password) {
-    const user = users.value.find(
-      u => u.email.toLowerCase() === email.toLowerCase() && u.password === password
-    )
-    if (!user) {
-      return { ok: false, error: 'Invalid admin credentials.' }
+  async function login(email, password) {
+    try {
+      const { token, user } = await api.login(email, password)
+      if (user.role === 'admin') {
+        return { ok: false, error: 'Please use the Admin Portal to sign in as administrator.' }
+      }
+      _setSession(token, user)
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: err.message }
     }
-    if (user.role !== 'admin') {
-      return { ok: false, error: 'Access denied. Admin credentials required.' }
+  }
+
+  async function adminLogin(email, password) {
+    try {
+      const { token, user } = await api.adminLogin(email, password)
+      _setSession(token, user)
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: err.message }
     }
-    const session = { id: user.id, name: user.name, email: user.email, role: user.role }
-    currentUser.value = session
-    localStorage.setItem(SESSION_KEY, JSON.stringify(session))
-    return { ok: true }
   }
 
   function logout() {
     currentUser.value = null
+    localStorage.removeItem(TOKEN_KEY)
     localStorage.removeItem(SESSION_KEY)
   }
 
-  // ── Admin actions ───────────────────────────────────────────────────────
-  const isAdmin = computed(() => currentUser.value?.role === 'admin')
-  const isUser  = computed(() => currentUser.value?.role === 'user')
-  const isStaff = computed(() => ['staff', 'doctor', 'nurse', 'admin'].includes(currentUser.value?.role))
-
-  function updateUserRole(userId, newRole) {
-    const idx = users.value.findIndex(u => u.id === userId)
-    if (idx === -1) return { ok: false, error: 'User not found.' }
-    users.value[idx] = { ...users.value[idx], role: newRole }
-    saveUsers(users.value)
-    // Keep session in sync if the updated user is the current user
-    if (currentUser.value?.id === userId) {
-      const session = { ...currentUser.value, role: newRole }
-      currentUser.value = session
-      localStorage.setItem(SESSION_KEY, JSON.stringify(session))
+  // Validate the stored token and refresh the user object on page load
+  async function restoreSession() {
+    if (!localStorage.getItem(TOKEN_KEY)) return
+    try {
+      const { user } = await api.me()
+      currentUser.value = user
+      localStorage.setItem(SESSION_KEY, JSON.stringify(user))
+    } catch {
+      logout()
     }
-    return { ok: true }
   }
 
-  function deleteUser(userId) {
-    if (currentUser.value?.id === userId) {
+  // ── Admin user-management actions (all async) ─────────────────────────────
+
+  async function fetchUsers() {
+    try {
+      const { users: list } = await api.getUsers()
+      users.value = list
+    } catch (err) {
+      console.error('fetchUsers:', err.message)
+    }
+  }
+
+  async function updateUserRole(userId, newRole) {
+    try {
+      await api.updateRole(userId, newRole)
+      const idx = users.value.findIndex(u => u.id === userId)
+      if (idx !== -1) users.value[idx] = { ...users.value[idx], role: newRole }
+      if (currentUser.value?.id === userId) {
+        currentUser.value = { ...currentUser.value, role: newRole }
+        localStorage.setItem(SESSION_KEY, JSON.stringify(currentUser.value))
+      }
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: err.message }
+    }
+  }
+
+  async function deleteUser(userId) {
+    if (currentUser.value?.id === userId)
       return { ok: false, error: 'You cannot delete your own account.' }
+    try {
+      await api.deleteUser(userId)
+      users.value = users.value.filter(u => u.id !== userId)
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: err.message }
     }
-    const exists = users.value.find(u => u.id === userId)
-    if (!exists) return { ok: false, error: 'User not found.' }
-    users.value = users.value.filter(u => u.id !== userId)
-    saveUsers(users.value)
-    return { ok: true }
   }
 
-  function resetPassword(userId, newPassword) {
-    if (newPassword.length < 6) return { ok: false, error: 'Password must be at least 6 characters.' }
-    const idx = users.value.findIndex(u => u.id === userId)
-    if (idx === -1) return { ok: false, error: 'User not found.' }
-    users.value[idx] = { ...users.value[idx], password: newPassword }
-    saveUsers(users.value)
-    return { ok: true }
+  async function resetPassword(userId, newPassword) {
+    if (newPassword.length < 6)
+      return { ok: false, error: 'Password must be at least 6 characters.' }
+    try {
+      await api.resetPassword(userId, newPassword)
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: err.message }
+    }
   }
 
-  return { users, currentUser, isLoggedIn, isAdmin, isUser, isStaff, register, login, adminLogin, logout, updateUserRole, deleteUser, resetPassword }
+  async function register_admin({ name, email, password, role }) {
+    try {
+      // Register via auth endpoint then immediately update role if not 'user'
+      await api.register(name, email, password)
+      // Refresh user list so we can find the new user's id
+      await fetchUsers()
+      if (role && role !== 'user') {
+        const newUser = users.value.find(u => u.email === email.toLowerCase())
+        if (newUser) await api.updateRole(newUser.id, role)
+        await fetchUsers()
+      }
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: err.message }
+    }
+  }
+
+  return {
+    users, currentUser,
+    isLoggedIn, isAdmin, isUser, isStaff,
+    register, login, adminLogin, logout, restoreSession,
+    fetchUsers, updateUserRole, deleteUser, resetPassword,
+    register_admin,
+  }
 })

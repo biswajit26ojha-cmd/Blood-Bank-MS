@@ -137,11 +137,9 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue'
-import { useAuthStore } from '@/stores/auth'
+import { ref, reactive } from 'vue'
 import { useBloodBankStore } from '@/stores/bloodBank'
 
-const auth = useAuthStore()
 const store = useBloodBankStore()
 
 const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
@@ -171,10 +169,8 @@ const error = ref('')
 const loading = ref(false)
 const toast = ref('')
 
-// Show only requests submitted by this user's bank (matched by email field)
-const myRequests = computed(() =>
-  store.externalBankRequests.filter(r => r.contactEmail === auth.currentUser?.email)
-)
+// Persist submissions locally (no staff-only API needed)
+const myRequests = ref(JSON.parse(localStorage.getItem('bb_my_external_requests') || '[]'))
 
 async function handleSubmit() {
   error.value = ''
@@ -184,7 +180,23 @@ async function handleSubmit() {
   }
   loading.value = true
   await new Promise(r => setTimeout(r, 300))
-  store.submitExternalBankRequest({ ...form })
+  const newReq = {
+    id: crypto.randomUUID(),
+    requestingBank: form.requestingBank,
+    contactName: form.contactName,
+    contactPhone: form.contactPhone,
+    contactEmail: form.contactEmail,
+    bloodType: form.bloodType,
+    units: form.units,
+    urgency: form.urgency,
+    reason: form.reason,
+    notes: form.notes,
+    status: 'Pending',
+    requestDate: new Date().toISOString().slice(0, 10),
+    resolvedDate: null,
+  }
+  myRequests.value.unshift(newReq)
+  localStorage.setItem('bb_my_external_requests', JSON.stringify(myRequests.value))
   loading.value = false
 
   Object.assign(form, { requestingBank: '', contactName: '', contactPhone: '', contactEmail: '', bloodType: '', units: 1, urgency: 'High', reason: '', notes: '' })

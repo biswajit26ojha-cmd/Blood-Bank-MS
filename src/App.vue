@@ -27,8 +27,23 @@ import Navbar from '@/components/Navbar.vue'
 import UserNavbar from '@/components/UserNavbar.vue'
 import { RouterView } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useBloodBankStore } from '@/stores/bloodBank'
+import { onMounted } from 'vue'
 
 const auth = useAuthStore()
+const store = useBloodBankStore()
+
+onMounted(async () => {
+  await auth.restoreSession()
+  if (auth.isLoggedIn && auth.isStaff) {
+    store.fetchInventory()
+    store.fetchRequests()
+    store.fetchDonors()
+    store.fetchExternalRequests()
+  } else if (auth.isLoggedIn) {
+    store.fetchInventory()
+  }
+})
 </script>
 
 <style>

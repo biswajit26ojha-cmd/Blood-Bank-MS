@@ -46,12 +46,12 @@
           </tr>
           <tr v-for="donor in filteredDonors" :key="donor.id">
             <td class="donor-name">{{ donor.name }}</td>
-            <td><span class="blood-badge">{{ donor.bloodType }}</span></td>
+            <td><span class="blood-badge">{{ donor.blood_type }}</span></td>
             <td>{{ donor.age }}</td>
             <td>{{ donor.phone }}</td>
             <td>{{ donor.city }}</td>
-            <td>{{ donor.lastDonation || '—' }}</td>
-            <td class="center">{{ donor.totalDonations }}</td>
+            <td>{{ donor.last_donation || '—' }}</td>
+            <td class="center">{{ donor.total_donations }}</td>
             <td>
               <span class="status-badge" :class="donor.status.toLowerCase()">{{ donor.status }}</span>
             </td>
@@ -156,8 +156,8 @@ const filterStatus = ref('')
 const filteredDonors = computed(() => {
   return store.donors.filter(d => {
     const q = search.value.toLowerCase()
-    const matchSearch = !q || d.name.toLowerCase().includes(q) || d.city.toLowerCase().includes(q)
-    const matchBlood = !filterBlood.value || d.bloodType === filterBlood.value
+    const matchSearch = !q || d.name.toLowerCase().includes(q) || (d.city || '').toLowerCase().includes(q)
+    const matchBlood = !filterBlood.value || d.blood_type === filterBlood.value
     const matchStatus = !filterStatus.value || d.status === filterStatus.value
     return matchSearch && matchBlood && matchStatus
   })
@@ -178,7 +178,11 @@ function openAddModal() {
 }
 
 function openEditModal(donor) {
-  Object.assign(form, { ...donor })
+  Object.assign(form, {
+    name: donor.name, bloodType: donor.blood_type, age: donor.age,
+    phone: donor.phone, email: donor.email, city: donor.city,
+    lastDonation: donor.last_donation, status: donor.status
+  })
   editingDonor.value = donor
   showModal.value = true
 }
@@ -188,11 +192,11 @@ function closeModal() {
   editingDonor.value = null
 }
 
-function submitDonor() {
+async function submitDonor() {
   if (editingDonor.value) {
-    store.updateDonor(editingDonor.value.id, { ...form })
+    await store.updateDonor(editingDonor.value.id, { ...form })
   } else {
-    store.addDonor({ ...form })
+    await store.addDonor({ ...form })
   }
   closeModal()
 }
@@ -201,14 +205,14 @@ function confirmDelete(donor) {
   deletingDonor.value = donor
 }
 
-function doDelete() {
-  store.deleteDonor(deletingDonor.value.id)
+async function doDelete() {
+  await store.deleteDonor(deletingDonor.value.id)
   deletingDonor.value = null
 }
 
-function handleDonate(donor) {
-  if (confirm(`Record a blood donation for ${donor.name} (${donor.bloodType})?`)) {
-    store.recordDonation(donor.id, donor.bloodType)
+async function handleDonate(donor) {
+  if (confirm(`Record a blood donation for ${donor.name} (${donor.blood_type})?`)) {
+    await store.recordDonation(donor.id)
   }
 }
 </script>

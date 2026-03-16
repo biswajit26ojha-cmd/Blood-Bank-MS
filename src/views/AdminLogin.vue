@@ -76,8 +76,7 @@ async function handleLogin() {
     return
   }
   loading.value = true
-  await new Promise(r => setTimeout(r, 300))
-  const result = auth.adminLogin(form.email, form.password)
+  const result = await auth.adminLogin(form.email, form.password)
   loading.value = false
   if (result.ok) {
     router.push('/admin')

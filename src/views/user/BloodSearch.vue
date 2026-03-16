@@ -23,23 +23,23 @@
       <div
         v-for="type in visibleTypes"
         :key="type"
-        :class="['inv-card', availClass(store.inventory[type]?.units)]"
+        :class="['inv-card', availClass(getRow(type).units)]"
       >
         <div class="inv-top">
           <span class="inv-type">{{ type }}</span>
-          <span :class="['avail-badge', availClass(store.inventory[type]?.units)]">
-            {{ availLabel(store.inventory[type]?.units) }}
+          <span :class="['avail-badge', availClass(getRow(type).units)]">
+            {{ availLabel(getRow(type).units) }}
           </span>
         </div>
-        <div class="inv-units">{{ store.inventory[type]?.units ?? 0 }}</div>
+        <div class="inv-units">{{ getRow(type).units }}</div>
         <div class="inv-label">units available</div>
 
         <!-- Availability bar -->
         <div class="inv-bar-wrap">
           <div
             class="inv-bar"
-            :style="{ width: barWidth(store.inventory[type]?.units) + '%' }"
-            :class="availClass(store.inventory[type]?.units)"
+            :style="{ width: barWidth(getRow(type).units) + '%' }"
+            :class="availClass(getRow(type).units)"
           ></div>
         </div>
 
@@ -54,7 +54,7 @@
         <RouterLink
           to="/request-blood"
           class="inv-req-btn"
-          :class="{ disabled: (store.inventory[type]?.units ?? 0) === 0 }"
+          :class="{ disabled: getRow(type).units === 0 }"
         >Request this type →</RouterLink>
       </div>
     </div>
@@ -104,6 +104,11 @@ const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
 const filter = ref('All')
 
 const visibleTypes = computed(() => filter.value === 'All' ? BLOOD_TYPES : [filter.value])
+
+// Helper: find inventory row by blood type (API returns an array)
+function getRow(type) {
+  return store.inventory.find(r => r.blood_type === type) ?? { units: 0, min_threshold: 10 }
+}
 
 // Who each type can donate to
 const compatibility = {
