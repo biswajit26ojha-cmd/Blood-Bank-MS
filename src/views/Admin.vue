@@ -393,7 +393,7 @@ onMounted(async () => {
   await store.fetchActivity()
 })
 
-const ROLES = ['admin', 'doctor', 'nurse', 'staff']
+const ROLES = ['admin', 'doctor', 'nurse', 'staff',  'user']
 const tabs = computed(() => [
   { key: 'users',     icon: '👥', label: 'User Management',     sub: 'Manage accounts, roles and permissions' },
   { key: 'interbank', icon: '🏥', label: 'Inter-Bank Requests', sub: 'Manage blood requests from partner banks and hospitals',
