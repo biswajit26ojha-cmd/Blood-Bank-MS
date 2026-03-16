@@ -246,7 +246,9 @@
           <div class="form-row">
             <div class="form-group">
               <label>Contact Phone *</label>
-              <input v-model.trim="newReq.contactPhone" type="tel" placeholder="+1 555 000 0000" required />
+              <input v-model="newReq.contactPhone" type="tel" placeholder="11 or 12 digit number" inputmode="numeric" required
+                @keypress="$event.key.replace(/\d/,'') && $event.preventDefault()"
+                @input="newReq.contactPhone = newReq.contactPhone.replace(/\D/g, '').slice(0,12)"/>
             </div>
             <div class="form-group">
               <label>Contact Email *</label>
@@ -429,6 +431,10 @@ async function submitNewOutgoing() {
   newReqError.value = ''
   if (!newReq.bloodType || !newReq.units || !newReq.urgency) {
     newReqError.value = 'Please fill in all required fields.'
+    return
+  }
+  if (newReq.contactPhone && !/^\d{11,12}$/.test(newReq.contactPhone)) {
+    newReqError.value = 'Contact phone must be exactly 11 or 12 digits.'
     return
   }
   await store.submitOutgoingRequest({ ...newReq })

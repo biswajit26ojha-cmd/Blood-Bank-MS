@@ -41,7 +41,9 @@
           <div class="form-row">
             <div class="form-group">
               <label>Contact Phone <span class="req">*</span></label>
-              <input v-model.trim="form.contactPhone" type="tel" placeholder="e.g. 555-1234" required />
+              <input v-model="form.contactPhone" type="tel" placeholder="11 or 12 digit number" inputmode="numeric" required
+                @keypress="$event.key.replace(/\d/,'') && $event.preventDefault()"
+                @input="form.contactPhone = form.contactPhone.replace(/\D/g, '').slice(0,12)"/>
             </div>
             <div class="form-group">
               <label>Contact Email <span class="req">*</span></label>
@@ -185,6 +187,10 @@ async function handleSubmit() {
   error.value = ''
   if (!form.requestingBank || !form.contactName || !form.contactPhone || !form.contactEmail || !form.bloodType || !form.units || !form.reason) {
     error.value = 'Please fill in all required fields.'
+    return
+  }
+  if (!/^\d{11,12}$/.test(form.contactPhone)) {
+    error.value = 'Contact phone must be exactly 11 or 12 digits.'
     return
   }
   loading.value = true

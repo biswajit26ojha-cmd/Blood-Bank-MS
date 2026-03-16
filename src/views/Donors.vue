@@ -89,11 +89,18 @@
               </div>
               <div class="form-group">
                 <label>Age *</label>
-                <input v-model.number="form.age" type="number" min="18" max="65" required />
+                <input v-model.number="form.age" type="number" min="18" max="65" required
+                  :class="{ 'input-error': errors.age }"
+                  @input="form.age = String(form.age).replace(/\D/g,'').slice(0,2); errors.age = ''"/>
+                <span v-if="errors.age" class="field-error">{{ errors.age }}</span>
               </div>
               <div class="form-group">
                 <label>Phone</label>
-                <input v-model="form.phone" type="text" placeholder="e.g. 555-0100" />
+                <input v-model="form.phone" type="tel" placeholder="11 or 12 digit number" inputmode="numeric"
+                  :class="{ 'input-error': errors.phone }"
+                  @keypress="$event.key.replace(/\d/,'') && $event.preventDefault()"
+                  @input="form.phone = form.phone.replace(/\D/g, '').slice(0,12); errors.phone = ''"/>
+                <span v-if="errors.phone" class="field-error">{{ errors.phone }}</span>
               </div>
               <div class="form-group">
                 <label>Email</label>
@@ -174,9 +181,34 @@ const deletingDonor = ref(null)
 
 const blankForm = () => ({ name: '', bloodType: '', age: '', phone: '', email: '', city: '', lastDonation: '', status: 'Active' })
 const form = reactive(blankForm())
+const errors = reactive({ age: '', phone: '' })
+
+function validate() {
+  errors.age = ''
+  errors.phone = ''
+  let valid = true
+
+  const age = Number(form.age)
+  if (!form.age && form.age !== 0) {
+    errors.age = 'Age is required.'
+    valid = false
+  } else if (!Number.isInteger(age) || age < 18 || age > 65) {
+    errors.age = 'Age must be between 18 and 65 (2 digits).'
+    valid = false
+  }
+
+  if (form.phone && !/^\d{11,12}$/.test(form.phone)) {
+    errors.phone = 'Phone must be exactly 11 or 12 digits.'
+    valid = false
+  }
+
+  return valid
+}
 
 function openAddModal() {
   Object.assign(form, blankForm())
+  errors.age = ''
+  errors.phone = ''
   editingDonor.value = null
   showModal.value = true
 }
@@ -187,6 +219,8 @@ function openEditModal(donor) {
     phone: donor.phone, email: donor.email, city: donor.city,
     lastDonation: donor.last_donation, status: donor.status
   })
+  errors.age = ''
+  errors.phone = ''
   editingDonor.value = donor
   showModal.value = true
 }
@@ -197,6 +231,7 @@ function closeModal() {
 }
 
 async function submitDonor() {
+  if (!validate()) return
   if (editingDonor.value) {
     await store.updateDonor(editingDonor.value.id, { ...form })
   } else {
@@ -279,6 +314,8 @@ async function handleDonate(donor) {
 .form-group label { font-size: .8rem; font-weight: 600; color: #7f8c8d; text-transform: uppercase; letter-spacing: .03em; }
 .form-group input, .form-group select { padding: .5rem .75rem; border: 1px solid #ddd; border-radius: 6px; font-size: .9rem; }
 .form-group input:focus, .form-group select:focus { outline: none; border-color: #c0392b; }
+.input-error { border-color: #e74c3c !important; background: #fff5f5; }
+.field-error { color: #e74c3c; font-size: .75rem; margin-top: .15rem; }
 
 .modal-footer { display: flex; gap: .75rem; justify-content: flex-end; padding: 1rem 1.5rem; border-top: 1px solid #ecf0f1; }
 .confirm-msg { padding: 1.25rem 1.5rem; color: #2c3e50; font-size: .95rem; margin: 0; }
