@@ -97,18 +97,18 @@
         </div>
         <div v-for="r in myRequests" :key="r.id" class="req-card">
           <div class="req-top">
-            <span class="bt-pill">{{ r.bloodType }}</span>
+            <span class="bt-pill">{{ r.blood_type }}</span>
             <span :class="['urg-chip', urgClass(r.urgency)]">{{ r.urgency }}</span>
             <span :class="['status-chip', statusClass(r.status)]">{{ r.status }}</span>
           </div>
           <div class="req-info">
-            <span><strong>Bank:</strong> {{ r.requestingBank }}</span>
+            <span><strong>Bank:</strong> {{ r.bank_name }}</span>
             <span><strong>Units:</strong> {{ r.units }}</span>
             <span><strong>Reason:</strong> {{ r.reason }}</span>
           </div>
           <div class="req-footer">
-            <span class="req-date">Submitted {{ r.requestDate }}</span>
-            <span v-if="r.resolvedDate" class="req-date">· Resolved {{ r.resolvedDate }}</span>
+            <span class="req-date">Submitted {{ r.request_date }}</span>
+            <span v-if="r.resolved_date" class="req-date">&middot; Resolved {{ r.resolved_date }}</span>
           </div>
         </div>
       </div>
@@ -137,8 +137,9 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useBloodBankStore } from '@/stores/bloodBank'
+import { api } from '@/services/api'
 
 const store = useBloodBankStore()
 
@@ -169,8 +170,16 @@ const error = ref('')
 const loading = ref(false)
 const toast = ref('')
 
-// Persist submissions locally (no staff-only API needed)
-const myRequests = ref(JSON.parse(localStorage.getItem('bb_my_external_requests') || '[]'))
+const myRequests = ref([])
+
+async function loadMyRequests() {
+  try {
+    const d = await api.getMyExternalRequests()
+    myRequests.value = d.requests
+  } catch (e) { console.error('Could not load requests:', e) }
+}
+
+onMounted(loadMyRequests)
 
 async function handleSubmit() {
   error.value = ''
@@ -179,29 +188,28 @@ async function handleSubmit() {
     return
   }
   loading.value = true
-  await new Promise(r => setTimeout(r, 300))
-  const newReq = {
-    id: crypto.randomUUID(),
-    requestingBank: form.requestingBank,
-    contactName: form.contactName,
-    contactPhone: form.contactPhone,
-    contactEmail: form.contactEmail,
-    bloodType: form.bloodType,
-    units: form.units,
-    urgency: form.urgency,
-    reason: form.reason,
-    notes: form.notes,
-    status: 'Pending',
-    requestDate: new Date().toISOString().slice(0, 10),
-    resolvedDate: null,
+  try {
+    await api.createExternalRequest({
+      direction: 'incoming',
+      bank_name: form.requestingBank,
+      contact_name: form.contactName,
+      contact_phone: form.contactPhone,
+      contact_email: form.contactEmail,
+      blood_type: form.bloodType,
+      units: form.units,
+      urgency: form.urgency,
+      reason: form.reason,
+      notes: form.notes || null,
+    })
+    await loadMyRequests()
+    Object.assign(form, { requestingBank: '', contactName: '', contactPhone: '', contactEmail: '', bloodType: '', units: 1, urgency: 'High', reason: '', notes: '' })
+    toast.value = '✅ Request submitted! Our team will contact partner banks within 2 hours.'
+    setTimeout(() => (toast.value = ''), 4000)
+  } catch (e) {
+    error.value = e.message || 'Submission failed. Please try again.'
+  } finally {
+    loading.value = false
   }
-  myRequests.value.unshift(newReq)
-  localStorage.setItem('bb_my_external_requests', JSON.stringify(myRequests.value))
-  loading.value = false
-
-  Object.assign(form, { requestingBank: '', contactName: '', contactPhone: '', contactEmail: '', bloodType: '', units: 1, urgency: 'High', reason: '', notes: '' })
-  toast.value = '✅ Request submitted! Our team will contact partner banks within 2 hours.'
-  setTimeout(() => (toast.value = ''), 4000)
 }
 
 function urgClass(u) {

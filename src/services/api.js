@@ -60,10 +60,11 @@ export const api = {
   deleteRequest:       (id)         => request('DELETE', `/requests/${id}`),
 
   // ── External / inter-bank requests ────────────────────────────────────────
-  getExternalRequests:   (direction) =>
+  getExternalRequests:    (direction) =>
     request('GET',   `/external-requests${direction ? `?direction=${direction}` : ''}`),
-  createExternalRequest: (d)         => request('POST',  '/external-requests',              d),
-  updateExternalStatus:  (id, status) => request('PATCH', `/external-requests/${id}/status`, { status }),
+  getMyExternalRequests:  ()          => request('GET',  '/external-requests/mine'),
+  createExternalRequest:  (d)         => request('POST', '/external-requests',              d),
+  updateExternalStatus:   (id, status) => request('PATCH', `/external-requests/${id}/status`, { status }),
 
   // ── Activity log ──────────────────────────────────────────────────────────
   getActivity: (limit = 100, type) =>

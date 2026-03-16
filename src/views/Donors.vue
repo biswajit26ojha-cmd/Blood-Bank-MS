@@ -144,10 +144,14 @@
 </template>
 
 <script setup>
-import { ref, computed, reactive } from 'vue'
+import { ref, computed, reactive, onMounted } from 'vue'
 import { useBloodBankStore } from '@/stores/bloodBank'
 
 const store = useBloodBankStore()
+
+onMounted(() => {
+  if (store.donors.length === 0) store.fetchDonors()
+})
 
 const search = ref('')
 const filterBlood = ref('')
