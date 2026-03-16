@@ -68,21 +68,21 @@
                 <td colspan="9" class="empty">No incoming requests found.</td>
               </tr>
               <tr v-for="r in filteredIncoming" :key="r.id" :class="['req-row', r.urgency.toLowerCase()]">
-                <td><div class="bank-cell"><span class="bank-icon">🏥</span><strong>{{ r.requestingBank }}</strong></div></td>
+                <td><div class="bank-cell"><span class="bank-icon">🏥</span><strong>{{ r.bank_name }}</strong></div></td>
                 <td>
                   <div class="contact-cell">
-                    <span>{{ r.contactName }}</span>
-                    <a :href="'tel:' + r.contactPhone" class="contact-link">{{ r.contactPhone }}</a>
-                    <a :href="'mailto:' + r.contactEmail" class="contact-link">{{ r.contactEmail }}</a>
+                    <span>{{ r.contact_name }}</span>
+                    <a :href="'tel:' + r.contact_phone" class="contact-link">{{ r.contact_phone }}</a>
+                    <a :href="'mailto:' + r.contact_email" class="contact-link">{{ r.contact_email }}</a>
                   </div>
                 </td>
-                <td><span class="bt-badge">{{ r.bloodType }}</span></td>
+                <td><span class="bt-badge">{{ r.blood_type }}</span></td>
                 <td class="units-cell">{{ r.units }}</td>
                 <td><span :class="['urg-chip', urgClass(r.urgency)]">{{ r.urgency }}</span></td>
                 <td class="reason-cell" :title="r.reason">{{ r.reason }}</td>
                 <td class="date-cell">
-                  <span>{{ r.requestDate }}</span>
-                  <span v-if="r.resolvedDate" class="resolved-date">→ {{ r.resolvedDate }}</span>
+                  <span>{{ r.request_date }}</span>
+                  <span v-if="r.resolved_date" class="resolved-date">→ {{ r.resolved_date }}</span>
                 </td>
                 <td><span :class="['status-chip', statusClass(r.status)]">{{ r.status }}</span></td>
                 <td>
@@ -145,21 +145,21 @@
                 <td colspan="9" class="empty">No outgoing requests yet. <button class="link-btn" @click="showNewModal = true">Request from a bank →</button></td>
               </tr>
               <tr v-for="r in filteredOutgoing" :key="r.id" :class="['req-row', r.urgency.toLowerCase()]">
-                <td><div class="bank-cell"><span class="bank-icon">🏥</span><strong>{{ r.targetBank }}</strong></div></td>
+                <td><div class="bank-cell"><span class="bank-icon">🏥</span><strong>{{ r.bank_name }}</strong></div></td>
                 <td>
                   <div class="contact-cell">
-                    <span>{{ r.contactName }}</span>
-                    <a :href="'tel:' + r.contactPhone" class="contact-link">{{ r.contactPhone }}</a>
-                    <a :href="'mailto:' + r.contactEmail" class="contact-link">{{ r.contactEmail }}</a>
+                    <span>{{ r.contact_name }}</span>
+                    <a :href="'tel:' + r.contact_phone" class="contact-link">{{ r.contact_phone }}</a>
+                    <a :href="'mailto:' + r.contact_email" class="contact-link">{{ r.contact_email }}</a>
                   </div>
                 </td>
-                <td><span class="bt-badge out-badge">{{ r.bloodType }}</span></td>
+                <td><span class="bt-badge out-badge">{{ r.blood_type }}</span></td>
                 <td class="units-cell">{{ r.units }}</td>
                 <td><span :class="['urg-chip', urgClass(r.urgency)]">{{ r.urgency }}</span></td>
                 <td class="reason-cell" :title="r.reason">{{ r.reason }}</td>
                 <td class="date-cell">
-                  <span>{{ r.requestDate }}</span>
-                  <span v-if="r.fulfilledDate" class="resolved-date">→ {{ r.fulfilledDate }}</span>
+                  <span>{{ r.request_date }}</span>
+                  <span v-if="r.resolved_date" class="resolved-date">→ {{ r.resolved_date }}</span>
                 </td>
                 <td><span :class="['status-chip', outStatusClass(r.status)]">{{ r.status }}</span></td>
                 <td>
@@ -182,15 +182,15 @@
         <h2>{{ confirmModal.action === 'Approved' ? '✅ Approve Request' : '✕ Decline Request' }}</h2>
         <p v-if="confirmModal.req" class="modal-desc">
           {{ confirmModal.action === 'Approved'
-            ? `Dispatch ${confirmModal.req.units} units of ${confirmModal.req.bloodType} to ${confirmModal.req.requestingBank} and deduct from inventory.`
-            : `Decline the request from ${confirmModal.req.requestingBank}?`
+            ? `Dispatch ${confirmModal.req.units} units of ${confirmModal.req.blood_type} to ${confirmModal.req.bank_name} and deduct from inventory.`
+            : `Decline the request from ${confirmModal.req.bank_name}?`
           }}
         </p>
         <div v-if="confirmModal.action === 'Approved' && confirmModal.req" class="inv-check">
           <span :class="['inv-status', inventoryOk(confirmModal.req) ? 'ok' : 'warn']">
             {{ inventoryOk(confirmModal.req)
-               ? `✅ Sufficient stock: ${store.inventory[confirmModal.req.bloodType]?.units} units available`
-               : `⚠ Low stock: only ${store.inventory[confirmModal.req.bloodType]?.units ?? 0} units available`
+               ? `✅ Sufficient stock: ${store.inventory.find(i => i.blood_type === confirmModal.req.blood_type)?.units} units available`
+               : `⚠ Low stock: only ${store.inventory.find(i => i.blood_type === confirmModal.req.blood_type)?.units ?? 0} units available`
             }}
           </span>
         </div>
@@ -209,8 +209,8 @@
         <h2>{{ outConfirmModal.action === 'Fulfilled' ? '✅ Mark as Received' : '✕ Cancel Request' }}</h2>
         <p v-if="outConfirmModal.req" class="modal-desc">
           {{ outConfirmModal.action === 'Fulfilled'
-            ? `Confirm receipt of ${outConfirmModal.req.units} units of ${outConfirmModal.req.bloodType} from ${outConfirmModal.req.targetBank}. This will add the units to your inventory.`
-            : `Cancel the pending request to ${outConfirmModal.req.targetBank} for ${outConfirmModal.req.bloodType}?`
+            ? `Confirm receipt of ${outConfirmModal.req.units} units of ${outConfirmModal.req.blood_type} from ${outConfirmModal.req.bank_name}. This will add the units to your inventory.`
+            : `Cancel the pending request to ${outConfirmModal.req.bank_name} for ${outConfirmModal.req.blood_type}?`
           }}
         </p>
         <div class="modal-actions">
@@ -295,13 +295,17 @@
 </template>
 
 <script setup>
-import { ref, computed, reactive } from 'vue'
+import { ref, computed, reactive, onMounted } from 'vue'
 import { useBloodBankStore } from '@/stores/bloodBank'
 
 const store = useBloodBankStore()
 
 const activeTab = ref('incoming')
 const toast = ref('')
+
+onMounted(async () => {
+  await store.fetchExternalRequests()
+})
 
 function showToast(msg) {
   toast.value = msg
@@ -314,42 +318,44 @@ const inFilter = ref('All')
 const inTypeFilter = ref('')
 const inSearch = ref('')
 
-const incomingPending = computed(() => store.externalBankRequests.filter(r => r.status === 'Pending').length)
+const incomingAll = computed(() => store.externalRequests.filter(r => r.direction === 'incoming'))
+const incomingPending = computed(() => incomingAll.value.filter(r => r.status === 'Pending').length)
 
 const incomingStats = computed(() => [
-  { label: 'Total',    count: store.externalBankRequests.length, color: '' },
-  { label: 'Pending',  count: store.externalBankRequests.filter(r => r.status === 'Pending').length,  color: 'orange' },
-  { label: 'Approved', count: store.externalBankRequests.filter(r => r.status === 'Approved').length, color: 'green' },
-  { label: 'Declined', count: store.externalBankRequests.filter(r => r.status === 'Declined').length, color: 'red' },
+  { label: 'Total',    count: incomingAll.value.length, color: '' },
+  { label: 'Pending',  count: incomingAll.value.filter(r => r.status === 'Pending').length,  color: 'orange' },
+  { label: 'Approved', count: incomingAll.value.filter(r => r.status === 'Approved').length, color: 'green' },
+  { label: 'Declined', count: incomingAll.value.filter(r => r.status === 'Declined').length, color: 'red' },
 ])
 
 const filteredIncoming = computed(() => {
   const q = inSearch.value.toLowerCase()
-  return store.externalBankRequests.filter(r => {
+  return incomingAll.value.filter(r => {
     if (inFilter.value !== 'All' && r.status !== inFilter.value) return false
-    if (inTypeFilter.value && r.bloodType !== inTypeFilter.value) return false
-    if (q && !r.requestingBank.toLowerCase().includes(q) && !r.contactName.toLowerCase().includes(q) && !r.contactEmail.toLowerCase().includes(q)) return false
+    if (inTypeFilter.value && r.blood_type !== inTypeFilter.value) return false
+    if (q && !r.bank_name.toLowerCase().includes(q) && !(r.contact_name || '').toLowerCase().includes(q) && !(r.contact_email || '').toLowerCase().includes(q)) return false
     return true
   })
 })
 
 function inventoryOk(req) {
-  return (store.inventory[req.bloodType]?.units ?? 0) >= req.units
+  const inv = store.inventory.find(i => i.blood_type === req.blood_type)
+  return (inv?.units ?? 0) >= req.units
 }
 
 const confirmModal = reactive({ show: false, req: null, action: '' })
 
 function openConfirm(id, action) {
-  confirmModal.req = store.externalBankRequests.find(r => r.id === id)
+  confirmModal.req = store.externalRequests.find(r => r.id === id)
   confirmModal.action = action
   confirmModal.show = true
 }
 
-function submitIncoming() {
-  store.updateExternalBankStatus(confirmModal.req.id, confirmModal.action)
+async function submitIncoming() {
+  await store.updateExternalBankStatus(confirmModal.req.id, confirmModal.action)
   const msg = confirmModal.action === 'Approved'
-    ? `✅ Approved — ${confirmModal.req.units} units of ${confirmModal.req.bloodType} dispatched to ${confirmModal.req.requestingBank}`
-    : `Request from ${confirmModal.req.requestingBank} declined.`
+    ? `✅ Approved — ${confirmModal.req.units} units of ${confirmModal.req.blood_type} dispatched to ${confirmModal.req.bank_name}`
+    : `Request from ${confirmModal.req.bank_name} declined.`
   showToast(msg)
   confirmModal.show = false
 }
@@ -360,21 +366,22 @@ const outFilter = ref('All')
 const outTypeFilter = ref('')
 const outSearch = ref('')
 
-const outgoingPending = computed(() => store.outgoingBankRequests.filter(r => r.status === 'Pending').length)
+const outgoingAll = computed(() => store.externalRequests.filter(r => r.direction === 'outgoing'))
+const outgoingPending = computed(() => outgoingAll.value.filter(r => r.status === 'Pending').length)
 
 const outgoingStats = computed(() => [
-  { label: 'Total',     count: store.outgoingBankRequests.length, color: '' },
-  { label: 'Pending',   count: store.outgoingBankRequests.filter(r => r.status === 'Pending').length,   color: 'orange' },
-  { label: 'Fulfilled', count: store.outgoingBankRequests.filter(r => r.status === 'Fulfilled').length, color: 'green'  },
-  { label: 'Cancelled', count: store.outgoingBankRequests.filter(r => r.status === 'Cancelled').length, color: 'red'    },
+  { label: 'Total',     count: outgoingAll.value.length, color: '' },
+  { label: 'Pending',   count: outgoingAll.value.filter(r => r.status === 'Pending').length,   color: 'orange' },
+  { label: 'Fulfilled', count: outgoingAll.value.filter(r => r.status === 'Fulfilled').length, color: 'green'  },
+  { label: 'Cancelled', count: outgoingAll.value.filter(r => r.status === 'Cancelled').length, color: 'red'    },
 ])
 
 const filteredOutgoing = computed(() => {
   const q = outSearch.value.toLowerCase()
-  return store.outgoingBankRequests.filter(r => {
+  return outgoingAll.value.filter(r => {
     if (outFilter.value !== 'All' && r.status !== outFilter.value) return false
-    if (outTypeFilter.value && r.bloodType !== outTypeFilter.value) return false
-    if (q && !r.targetBank.toLowerCase().includes(q) && !r.contactName.toLowerCase().includes(q)) return false
+    if (outTypeFilter.value && r.blood_type !== outTypeFilter.value) return false
+    if (q && !r.bank_name.toLowerCase().includes(q) && !(r.contact_name || '').toLowerCase().includes(q)) return false
     return true
   })
 })
@@ -382,16 +389,16 @@ const filteredOutgoing = computed(() => {
 const outConfirmModal = reactive({ show: false, req: null, action: '' })
 
 function openOutConfirm(id, action) {
-  outConfirmModal.req = store.outgoingBankRequests.find(r => r.id === id)
+  outConfirmModal.req = store.externalRequests.find(r => r.id === id)
   outConfirmModal.action = action
   outConfirmModal.show = true
 }
 
-function submitOutgoing() {
-  store.updateOutgoingRequestStatus(outConfirmModal.req.id, outConfirmModal.action)
+async function submitOutgoing() {
+  await store.updateOutgoingRequestStatus(outConfirmModal.req.id, outConfirmModal.action)
   const msg = outConfirmModal.action === 'Fulfilled'
-    ? `✅ Received ${outConfirmModal.req.units} units of ${outConfirmModal.req.bloodType} from ${outConfirmModal.req.targetBank} — inventory updated`
-    : `Request to ${outConfirmModal.req.targetBank} cancelled.`
+    ? `✅ Received ${outConfirmModal.req.units} units of ${outConfirmModal.req.blood_type} from ${outConfirmModal.req.bank_name} — inventory updated`
+    : `Request to ${outConfirmModal.req.bank_name} cancelled.`
   showToast(msg)
   outConfirmModal.show = false
 }
@@ -404,13 +411,13 @@ const newReq = reactive({
   bloodType: '', units: '', urgency: '', reason: '', notes: ''
 })
 
-function submitNewOutgoing() {
+async function submitNewOutgoing() {
   newReqError.value = ''
   if (!newReq.bloodType || !newReq.units || !newReq.urgency) {
     newReqError.value = 'Please fill in all required fields.'
     return
   }
-  store.submitOutgoingRequest({ ...newReq })
+  await store.submitOutgoingRequest({ ...newReq })
   Object.assign(newReq, { targetBank: '', contactName: '', contactPhone: '', contactEmail: '', bloodType: '', units: '', urgency: '', reason: '', notes: '' })
   showNewModal.value = false
   showToast('📤 Request sent successfully.')
@@ -420,11 +427,9 @@ function submitNewOutgoing() {
 function urgClass(u) {
   return { Low: 'urg-low', Medium: 'urg-med', High: 'urg-high', Critical: 'urg-crit' }[u] || ''
 }
-
 function statusClass(s) {
   return { Pending: 'pending', Approved: 'approved', Declined: 'declined' }[s] || 'pending'
 }
-
 function outStatusClass(s) {
   return { Pending: 'pending', Fulfilled: 'approved', Cancelled: 'declined' }[s] || 'pending'
 }

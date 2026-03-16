@@ -75,9 +75,7 @@ async function handleLogin() {
     return
   }
   loading.value = true
-  // Simulate brief async delay for UX
-  await new Promise(r => setTimeout(r, 300))
-  const result = auth.login(form.email, form.password)
+  const result = await auth.login(form.email, form.password)
   loading.value = false
   if (result.ok) {
     router.push(auth.currentUser?.role === 'user' ? '/user-dashboard' : '/')

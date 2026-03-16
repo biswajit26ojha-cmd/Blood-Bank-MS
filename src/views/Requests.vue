@@ -42,16 +42,16 @@
         :class="req.urgency.toLowerCase()"
       >
         <div class="req-top">
-          <div class="req-patient-name">{{ req.patientName }}</div>
+          <div class="req-patient-name">{{ req.patient_name }}</div>
           <span class="urgency-pill" :class="req.urgency.toLowerCase()">{{ req.urgency }}</span>
         </div>
         <div class="req-hospital">🏥 {{ req.hospital }}</div>
         <div class="req-meta-row">
-          <span class="blood-badge">{{ req.bloodType }}</span>
+          <span class="blood-badge">{{ req.blood_type }}</span>
           <span class="units-badge">{{ req.units }} unit(s)</span>
           <span class="status-pill" :class="statusClass(req.status)">{{ req.status }}</span>
         </div>
-        <div class="req-date">Requested: {{ req.requestDate }}</div>
+        <div class="req-date">Requested: {{ req.request_date }}</div>
         <div class="req-notes" v-if="req.notes">📝 {{ req.notes }}</div>
 
         <div class="req-actions">
@@ -148,10 +148,10 @@ const showModal = ref(false)
 const filteredRequests = computed(() => {
   return store.requests.filter(r => {
     const q = search.value.toLowerCase()
-    const matchSearch = !q || r.patientName.toLowerCase().includes(q) || r.hospital.toLowerCase().includes(q)
+    const matchSearch = !q || (r.patient_name || '').toLowerCase().includes(q) || r.hospital.toLowerCase().includes(q)
     const matchStatus = !filterStatus.value || r.status === filterStatus.value
     const matchUrgency = !filterUrgency.value || r.urgency === filterUrgency.value
-    const matchBlood = !filterBlood.value || r.bloodType === filterBlood.value
+    const matchBlood = !filterBlood.value || r.blood_type === filterBlood.value
     return matchSearch && matchStatus && matchUrgency && matchBlood
   })
 })
@@ -166,24 +166,24 @@ const statusCounts = computed(() => ({
 const blankForm = () => ({ patientName: '', hospital: '', bloodType: '', units: 1, urgency: '', notes: '' })
 const form = reactive(blankForm())
 
-function submitRequest() {
-  store.addRequest({ ...form })
+async function submitRequest() {
+  await store.addRequest({ ...form })
   Object.assign(form, blankForm())
   showModal.value = false
 }
 
-function updateStatus(id, status) {
-  store.updateRequestStatus(id, status)
+async function updateStatus(id, status) {
+  await store.updateRequestStatus(id, status)
 }
 
-function handleFulfill(req) {
-  const inv = store.inventory[req.bloodType]
-  if (inv.units < req.units) {
-    alert(`Insufficient stock! Available: ${inv.units} unit(s) of ${req.bloodType}, requested: ${req.units}.`)
+async function handleFulfill(req) {
+  const inv = store.inventory.find(i => i.blood_type === req.blood_type)
+  if (!inv || inv.units < req.units) {
+    alert(`Insufficient stock! Available: ${inv?.units ?? 0} unit(s) of ${req.blood_type}, requested: ${req.units}.`)
     return
   }
-  if (confirm(`Fulfill request for ${req.patientName} — ${req.units} unit(s) of ${req.bloodType}? This will deduct from inventory.`)) {
-    store.updateRequestStatus(req.id, 'Fulfilled')
+  if (confirm(`Fulfill request for ${req.patient_name} — ${req.units} unit(s) of ${req.blood_type}? This will deduct from inventory.`)) {
+    await store.updateRequestStatus(req.id, 'Fulfilled')
   }
 }
 

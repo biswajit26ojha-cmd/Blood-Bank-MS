@@ -95,15 +95,15 @@
     <section v-if="activeTab === 'activity'" class="panel">
       <div class="panel-toolbar">
         <span class="panel-title">System Activity</span>
-        <button class="btn-danger-sm" @click="store.activityLog = []">Clear log</button>
+        <button class="btn-danger-sm" @click="store.fetchActivity()">↻ Refresh</button>
       </div>
       <div class="log-list">
         <div v-if="store.activityLog.length === 0" class="empty" style="padding:2rem;text-align:center">No activity yet.</div>
-        <div v-for="entry in [...store.activityLog].reverse()" :key="entry.id" class="log-entry">
+        <div v-for="entry in store.activityLog" :key="entry.id" class="log-entry">
           <span class="log-icon">{{ logIcon(entry.type) }}</span>
           <div class="log-body">
             <p>{{ entry.message }}</p>
-            <span class="log-time">{{ entry.time }}</span>
+            <span class="log-time">{{ entry.created_at }}</span>
           </div>
         </div>
       </div>
@@ -182,23 +182,23 @@
                 <td>
                   <div class="bank-cell">
                     <span class="bank-icon">🏥</span>
-                    <strong>{{ r.requestingBank }}</strong>
+                    <strong>{{ r.bank_name }}</strong>
                   </div>
                 </td>
                 <td>
                   <div class="contact-cell">
-                    <span>{{ r.contactName }}</span>
-                    <a :href="'tel:' + r.contactPhone" class="contact-link">{{ r.contactPhone }}</a>
-                    <a :href="'mailto:' + r.contactEmail" class="contact-link ellipsis">{{ r.contactEmail }}</a>
+                    <span>{{ r.contact_name }}</span>
+                    <a :href="'tel:' + r.contact_phone" class="contact-link">{{ r.contact_phone }}</a>
+                    <a :href="'mailto:' + r.contact_email" class="contact-link ellipsis">{{ r.contact_email }}</a>
                   </div>
                 </td>
-                <td><span class="bt-badge">{{ r.bloodType }}</span></td>
+                <td><span class="bt-badge">{{ r.blood_type }}</span></td>
                 <td class="units-cell">{{ r.units }}</td>
                 <td><span :class="['urg-chip', urgClass(r.urgency)]">{{ r.urgency }}</span></td>
                 <td class="reason-cell" :title="r.reason">{{ r.reason }}</td>
                 <td class="date-cell">
-                  <span>{{ r.requestDate }}</span>
-                  <span v-if="r.resolvedDate" class="resolved-date">→ {{ r.resolvedDate }}</span>
+                  <span>{{ r.request_date }}</span>
+                  <span v-if="r.resolved_date" class="resolved-date">→ {{ r.resolved_date }}</span>
                 </td>
                 <td><span :class="['status-chip', statusClass(r.status)]">{{ r.status }}</span></td>
                 <td>
@@ -286,15 +286,15 @@
           <h2>{{ ibConfirm.action === 'Approved' ? '✅ Approve Request' : '✕ Decline Request' }}</h2>
           <p v-if="ibConfirm.req" class="modal-desc">
             {{ ibConfirm.action === 'Approved'
-              ? `This will dispatch ${ibConfirm.req.units} units of ${ibConfirm.req.bloodType} to ${ibConfirm.req.requestingBank} and deduct them from inventory.`
-              : `Decline the request from ${ibConfirm.req.requestingBank}?`
+              ? `This will dispatch ${ibConfirm.req.units} units of ${ibConfirm.req.blood_type} to ${ibConfirm.req.bank_name} and deduct them from inventory.`
+              : `Decline the request from ${ibConfirm.req.bank_name}?`
             }}
           </p>
           <div v-if="ibConfirm.action === 'Approved' && ibConfirm.req" class="inv-check">
             <span :class="['inv-status', ibInventoryOk(ibConfirm.req) ? 'ok' : 'warn']">
               {{ ibInventoryOk(ibConfirm.req)
-                ? `✅ Sufficient: ${store.inventory[ibConfirm.req.bloodType]?.units} units available`
-                : `⚠ Low stock: only ${store.inventory[ibConfirm.req.bloodType]?.units ?? 0} units (requesting ${ibConfirm.req.units})`
+                ? `✅ Sufficient: ${store.inventory.find(i => i.blood_type === ibConfirm.req.blood_type)?.units} units available`
+                : `⚠ Low stock: only ${store.inventory.find(i => i.blood_type === ibConfirm.req.blood_type)?.units ?? 0} units (requesting ${ibConfirm.req.units})`
               }}
             </span>
           </div>
@@ -380,12 +380,18 @@
 </template>
 
 <script setup>
-import { ref, computed, reactive } from 'vue'
+import { ref, computed, reactive, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useBloodBankStore } from '@/stores/bloodBank'
 
 const auth = useAuthStore()
 const store = useBloodBankStore()
+
+onMounted(async () => {
+  await auth.fetchUsers()
+  await store.fetchExternalRequests('incoming')
+  await store.fetchActivity()
+})
 
 const ROLES = ['admin', 'doctor', 'nurse', 'staff']
 const tabs = computed(() => [
@@ -442,9 +448,10 @@ function showToast(msg) {
 }
 
 // ── Role change ────────────────────────────────────────────────────────────
-function changeRole(userId, newRole) {
-  const result = auth.updateUserRole(userId, newRole)
+async function changeRole(userId, newRole) {
+  const result = await auth.updateUserRole(userId, newRole)
   if (result.ok) showToast('Role updated.')
+  else showToast('Error: ' + result.error)
 }
 
 // ── Create User Modal ──────────────────────────────────────────────────────
@@ -457,10 +464,10 @@ function openCreateModal() {
   showCreateModal.value = true
 }
 
-function submitCreate() {
+async function submitCreate() {
   modalError.value = ''
   if (newUser.password.length < 6) { modalError.value = 'Password must be at least 6 characters.'; return }
-  const result = auth.register({ name: newUser.name, email: newUser.email, password: newUser.password, role: newUser.role })
+  const result = await auth.register_admin({ name: newUser.name, email: newUser.email, password: newUser.password, role: newUser.role })
   if (result.ok) {
     showCreateModal.value = false
     showToast(`User "${newUser.name}" created.`)
@@ -481,9 +488,9 @@ function openResetModal(user) {
   showResetModal.value = true
 }
 
-function submitReset() {
+async function submitReset() {
   modalError.value = ''
-  const result = auth.resetPassword(resetTarget.value.id, resetPwd.value)
+  const result = await auth.resetPassword(resetTarget.value.id, resetPwd.value)
   if (result.ok) {
     showResetModal.value = false
     showToast('Password reset successfully.')
@@ -502,9 +509,9 @@ function confirmDelete(user) {
   showDeleteModal.value = true
 }
 
-function submitDelete() {
+async function submitDelete() {
   modalError.value = ''
-  const result = auth.deleteUser(deleteTarget.value.id)
+  const result = await auth.deleteUser(deleteTarget.value.id)
   if (result.ok) {
     showDeleteModal.value = false
     showToast(`User "${deleteTarget.value.name}" deleted.`)
@@ -514,12 +521,11 @@ function submitDelete() {
 }
 
 // ── Danger zone ────────────────────────────────────────────────────────────
-function clearOtherUsers() {
+async function clearOtherUsers() {
   if (!confirm('This will remove all non-admin user accounts. Continue?')) return
-  const keep = auth.users.filter(u => u.id === auth.currentUser?.id)
-  auth.users.splice(0, auth.users.length, ...keep)
-  localStorage.setItem('bb_users', JSON.stringify(auth.users))
-  showToast('All other users removed.')
+  const others = auth.users.filter(u => u.role !== 'admin' && u.id !== auth.currentUser?.id)
+  for (const u of others) await auth.deleteUser(u.id)
+  showToast('All non-admin users removed.')
 }
 
 // ── Inter-Bank ─────────────────────────────────────────────────────────────
@@ -529,41 +535,43 @@ const ibSearch = ref('')
 const ibTypeFilter = ref('')
 
 const ibStats = computed(() => [
-  { label: 'Total',    count: store.externalBankRequests.length, color: '' },
-  { label: 'Pending',  count: store.externalBankRequests.filter(r => r.status === 'Pending').length,  color: 'orange' },
-  { label: 'Approved', count: store.externalBankRequests.filter(r => r.status === 'Approved').length, color: 'green'  },
-  { label: 'Declined', count: store.externalBankRequests.filter(r => r.status === 'Declined').length, color: 'red'    },
+  { label: 'Total',    count: store.externalRequests.filter(r => r.direction === 'incoming').length, color: '' },
+  { label: 'Pending',  count: store.externalRequests.filter(r => r.direction === 'incoming' && r.status === 'Pending').length,  color: 'orange' },
+  { label: 'Approved', count: store.externalRequests.filter(r => r.direction === 'incoming' && r.status === 'Approved').length, color: 'green'  },
+  { label: 'Declined', count: store.externalRequests.filter(r => r.direction === 'incoming' && r.status === 'Declined').length, color: 'red'    },
 ])
 
 const ibFiltered = computed(() => {
   const q = ibSearch.value.toLowerCase()
-  return store.externalBankRequests.filter(r => {
+  return store.externalRequests.filter(r => {
+    if (r.direction !== 'incoming') return false
     if (ibFilter.value !== 'All' && r.status !== ibFilter.value) return false
-    if (ibTypeFilter.value && r.bloodType !== ibTypeFilter.value) return false
-    if (q && !r.requestingBank.toLowerCase().includes(q) &&
-        !r.contactName.toLowerCase().includes(q) &&
-        !r.contactEmail.toLowerCase().includes(q)) return false
+    if (ibTypeFilter.value && r.blood_type !== ibTypeFilter.value) return false
+    if (q && !r.bank_name.toLowerCase().includes(q) &&
+        !r.contact_name.toLowerCase().includes(q) &&
+        !(r.contact_email || '').toLowerCase().includes(q)) return false
     return true
   })
 })
 
 function ibInventoryOk(req) {
-  return (store.inventory[req.bloodType]?.units ?? 0) >= req.units
+  const inv = store.inventory.find(i => i.blood_type === req.blood_type)
+  return (inv?.units ?? 0) >= req.units
 }
 
 const ibConfirm = reactive({ show: false, req: null, action: '' })
 
 function openIbConfirm(id, action) {
-  ibConfirm.req = store.externalBankRequests.find(r => r.id === id)
+  ibConfirm.req = store.externalRequests.find(r => r.id === id)
   ibConfirm.action = action
   ibConfirm.show = true
 }
 
-function submitIbAction() {
-  store.updateExternalBankStatus(ibConfirm.req.id, ibConfirm.action)
+async function submitIbAction() {
+  await store.updateExternalBankStatus(ibConfirm.req.id, ibConfirm.action)
   const msg = ibConfirm.action === 'Approved'
-    ? `✅ Approved — ${ibConfirm.req.units} units of ${ibConfirm.req.bloodType} dispatched to ${ibConfirm.req.requestingBank}`
-    : `Request from ${ibConfirm.req.requestingBank} declined.`
+    ? `✅ Approved — ${ibConfirm.req.units} units of ${ibConfirm.req.blood_type} dispatched to ${ibConfirm.req.bank_name}`
+    : `Request from ${ibConfirm.req.bank_name} declined.`
   showToast(msg)
   ibConfirm.show = false
 }
@@ -582,13 +590,13 @@ const newReq = reactive({
   bloodType: '', units: '', urgency: '', reason: '', notes: ''
 })
 
-function submitNewReq() {
+async function submitNewReq() {
   newReqError.value = ''
   if (!newReq.bloodType || !newReq.units || !newReq.urgency) {
     newReqError.value = 'Please fill in all required fields.'
     return
   }
-  store.submitExternalBankRequest({ ...newReq })
+  await store.submitExternalBankRequest({ ...newReq })
   Object.assign(newReq, {
     requestingBank: '', contactName: '', contactPhone: '', contactEmail: '',
     bloodType: '', units: '', urgency: '', reason: '', notes: ''

@@ -1,6 +1,236 @@
 # 🩸 Blood Bank Management System
 
-A full-featured Blood Bank Management System built with **Vue 3**, **Pinia**, and **Vue Router 4**. Supports multiple user roles with dedicated portals for patients, staff, and administrators.
+A full-stack Blood Bank Management System built with **Vue 3** (frontend) and **Node.js / Express / MySQL** (backend). Supports multiple user roles with dedicated portals for patients, staff, and administrators.
+
+---
+
+## 🚀 Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | Vue 3, Pinia, Vue Router 4, Vite |
+| Backend | Node.js, Express.js |
+| Database | MySQL 8+ (via `mysql2`) |
+| Auth | JWT (JSON Web Tokens) + bcryptjs |
+
+No external UI library — all custom scoped CSS.
+
+---
+
+## ⚙️ Prerequisites
+
+- **Node.js** v18+
+- **MySQL 8+** (running locally or remote)
+- **npm** v9+
+
+---
+
+## 🛠 Setup & Installation
+
+### 1. Clone / Open the project
+
+```bash
+cd "Blood Bank"
+```
+
+### 2. Install frontend dependencies
+
+```bash
+npm install
+```
+
+### 3. Install backend dependencies
+
+```bash
+cd backend
+npm install
+```
+
+### 4. Configure environment
+
+Create a `.env` file inside the `backend/` folder:
+
+```env
+PORT=3000
+FRONTEND_URL=http://localhost:5173
+JWT_SECRET=your-long-random-secret-here
+
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD="your_mysql_password"
+DB_NAME=bloodbank
+```
+
+> ⚠️ If your password contains special characters like `#`, wrap it in double quotes.
+
+### 5. Create the MySQL database
+
+Open MySQL Workbench or a MySQL shell and run:
+
+```sql
+CREATE DATABASE IF NOT EXISTS bloodbank CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+### 6. Start the backend
+
+```bash
+cd backend
+node server.js
+```
+
+On first run, the server will automatically:
+- Create all required tables (`users`, `donors`, `inventory`, etc.)
+- Seed the default admin account → `admin@bloodbank.local` / `Admin@123`
+- Seed inventory with default blood unit values
+
+Expected output:
+```
+✅ DB migration complete
+✅ Default admin seeded  →  admin@bloodbank.local  /  Admin@123
+🩸 Blood Bank API running at http://localhost:3000
+```
+
+### 7. Start the frontend
+
+In a separate terminal:
+
+```bash
+npm run dev
+```
+
+Open **http://localhost:5173** in your browser.
+
+---
+
+## 👥 User Roles & Portals
+
+### 🛡 Admin
+- Full access to all features
+- User management (view, change roles, delete)
+- Activity audit log
+- System settings
+
+**Login:** `/admin-login` → `admin@bloodbank.local` / `Admin@123`
+
+### 🏥 Staff (doctor / nurse / staff)
+- Donor management
+- Blood inventory management
+- Blood request management
+- Inter-bank request management
+- Donation application review
+
+**Login:** `/login` (staff accounts created by admin)
+
+### 👤 Patient / User
+- Search live blood availability
+- Submit blood requests
+- Apply to donate blood
+- Request from partner blood banks
+
+**Register:** `/register` → then login at `/login`
+
+---
+
+## 📁 Project Structure
+
+```
+Blood Bank/
+├── index.html
+├── package.json
+├── vite.config.js
+├── README.md
+├── DOCUMENTATION.md
+├── backend/
+│   ├── server.js              # Express app entry point
+│   ├── package.json
+│   ├── .env                   # Environment config (create this)
+│   ├── db/
+│   │   └── database.js        # MySQL pool, migrations, seeds
+│   ├── middleware/
+│   │   └── auth.js            # JWT authenticate & requireStaff guards
+│   └── routes/
+│       ├── auth.js            # Login, register, /me
+│       ├── users.js           # Admin user management
+│       ├── donors.js          # Donor CRUD
+│       ├── inventory.js       # Inventory view & adjust
+│       ├── requests.js        # Blood requests CRUD
+│       ├── externalRequests.js# Inter-bank requests
+│       └── activity.js        # Activity log
+└── src/
+    ├── main.js
+    ├── App.vue                # Root layout + session restore
+    ├── components/
+    │   ├── Navbar.vue         # Staff/admin sidebar
+    │   └── UserNavbar.vue     # Patient sidebar
+    ├── router/
+    │   └── index.js           # Routes & navigation guards
+    ├── services/
+    │   └── api.js             # Centralised API client
+    ├── stores/
+    │   ├── auth.js            # Auth store (Pinia)
+    │   └── bloodBank.js       # Blood bank data store (Pinia)
+    └── views/
+        ├── Dashboard.vue
+        ├── Donors.vue
+        ├── Inventory.vue
+        ├── Requests.vue
+        ├── ExternalRequests.vue
+        ├── DonationApplications.vue
+        ├── Compatibility.vue
+        ├── Admin.vue
+        ├── Login.vue
+        ├── Register.vue
+        ├── AdminLogin.vue
+        └── user/
+            ├── UserDashboard.vue
+            ├── BloodSearch.vue
+            ├── RequestBlood.vue
+            ├── DonateBlood.vue
+            ├── ExternalBankRequest.vue
+            └── Contact.vue
+```
+
+---
+
+## 🔑 Features
+
+### Staff Portal
+| Feature | Description |
+|---|---|
+| **Dashboard** | Overview stats, critical stock alerts, recent activity |
+| **Donors** | Add, edit, delete donors; record donations |
+| **Inventory** | View and adjust blood unit stock; adjustment log |
+| **Requests** | Create and manage internal blood transfusion requests |
+| **Inter-Bank** | Incoming (approve/decline) and Outgoing requests |
+| **Donation Applications** | Review and approve/reject patient donation applications |
+| **Compatibility** | Blood type compatibility reference tool |
+
+### Patient Portal
+| Feature | Description |
+|---|---|
+| **Search Blood** | Live blood type availability with compatibility chart |
+| **Request Blood** | Submit a blood request |
+| **Donate Blood** | Apply to donate; reviewed by staff |
+| **Other Blood Banks** | Request from partner bank network |
+| **Contact** | Contact form |
+
+---
+
+## 🔀 API Endpoints
+
+See [DOCUMENTATION.md](DOCUMENTATION.md) for the full API reference.
+
+---
+
+## 🔒 Security
+
+- Passwords hashed with **bcryptjs** (10 salt rounds)
+- Auth via signed **JWT** tokens (Bearer scheme)
+- Role-based access control on all write endpoints
+- SQL injection prevented via parameterised queries (`mysql2`)
+- CORS restricted to the configured `FRONTEND_URL`
+
 
 ---
 

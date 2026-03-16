@@ -125,8 +125,7 @@ async function handleRegister() {
   }
 
   loading.value = true
-  await new Promise(r => setTimeout(r, 300))
-  const result = auth.register({ name: form.name, email: form.email, password: form.password, role: form.role })
+  const result = await auth.register({ name: form.name, email: form.email, password: form.password })
   loading.value = false
 
   if (result.ok) {
