@@ -38,11 +38,18 @@
           <div class="form-row">
             <div class="form-group">
               <label>Age <span class="req">*</span></label>
-              <input v-model.number="form.age" type="number" min="18" max="65" placeholder="e.g. 25" required />
+              <input v-model.number="form.age" type="number" min="18" max="65" placeholder="e.g. 25" required
+                :class="{ 'input-error': errors.age }"
+                @input="form.age = String(form.age).replace(/\D/g,'').slice(0,2); errors.age = ''"/>
+              <span v-if="errors.age" class="field-error">{{ errors.age }}</span>
             </div>
             <div class="form-group">
               <label>Phone Number <span class="req">*</span></label>
-              <input v-model.trim="form.phone" type="tel" placeholder="e.g. 555-0100" required />
+              <input v-model="form.phone" type="tel" placeholder="11 or 12 digit number" inputmode="numeric" required
+                :class="{ 'input-error': errors.phone }"
+                @keypress="$event.key.replace(/\d/,'') && $event.preventDefault()"
+                @input="form.phone = form.phone.replace(/\D/g, '').slice(0,12); errors.phone = ''"/>
+              <span v-if="errors.phone" class="field-error">{{ errors.phone }}</span>
             </div>
           </div>
 
@@ -123,6 +130,25 @@ const form = reactive({
   bloodType: '', age: '', phone: '', email: auth.currentUser?.email || '',
   city: '', lastDonation: '', agree: false
 })
+const errors = reactive({ age: '', phone: '' })
+
+function validate() {
+  errors.age = ''
+  errors.phone = ''
+  let valid = true
+  const age = Number(form.age)
+  if (!form.age && form.age !== 0) {
+    errors.age = 'Age is required.'; valid = false
+  } else if (!Number.isInteger(age) || age < 18 || age > 65) {
+    errors.age = 'Age must be between 18 and 65 (2 digits).'; valid = false
+  }
+  if (!form.phone) {
+    errors.phone = 'Phone is required.'; valid = false
+  } else if (!/^\d{11,12}$/.test(form.phone)) {
+    errors.phone = 'Phone must be exactly 11 or 12 digits.'; valid = false
+  }
+  return valid
+}
 
 const error = ref('')
 const loading = ref(false)
@@ -138,10 +164,7 @@ async function handleSubmit() {
     error.value = 'Please fill in all required fields.'
     return
   }
-  if (form.age < 18 || form.age > 65) {
-    error.value = 'Donor must be between 18 and 65 years old.'
-    return
-  }
+  if (!validate()) return
   if (!form.agree) {
     error.value = 'Please confirm the eligibility declaration.'
     return
@@ -163,6 +186,8 @@ async function handleSubmit() {
   loading.value = false
 
   Object.assign(form, { bloodType: '', age: '', phone: '', city: '', lastDonation: '', agree: false })
+  errors.age = ''
+  errors.phone = ''
   toast.value = '✅ Application submitted! We will contact you within 48 hours.'
   setTimeout(() => (toast.value = ''), 4000)
 }
@@ -281,6 +306,8 @@ input:focus, select:focus {
   font-size: 0.85rem;
   margin: -0.25rem 0 1rem;
 }
+.input-error { border-color: #e74c3c !important; background: #fff5f5; }
+.field-error { color: #e74c3c; font-size: 0.75rem; margin-top: 0.1rem; }
 
 .btn-submit {
   width: 100%;
